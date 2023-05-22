@@ -4,7 +4,7 @@ using GLMakie
 
 function S(a,b,c; reversed=false)
     F(n) = n > b ? n-c : F(a + F(a + F(a + F(a + n))))
-    reversed ? F.(b:-1:0) : F.(1:b)
+    reversed ? F.(b:-1:0) : F.(0:b)
 end
 
 function solveNaive(a,b,c)
@@ -45,21 +45,22 @@ function solveGPU(a,b,c; modu=10^9)
     acc = CuArray([start]) .* a .- diminisher
     # middle blocks
     modsum(a,b) = (a + b) % modu
-    acc = acc .+ reduce(modsum, gpumem; init=0)
+    sum(gpumem)
+    acc = acc .+ reduce(+, gpumem; init=0)
     # last blocks
     acc = acc .+ ((start + nblocks*stepup)%modu*((b%a)+1) .- (sum(1:b%a)%modu))
     # free memory
     gpumem = nothing
-    CUDA.@allowscalar first(acc) % 10^9
+    CUDA.@allowscalar first(acc) % modu
 end
 
 a,b,c = 50, 2000, 40
-GLMakie.scatter(S(50, 2000, 40))
+GLMakie.scatter(S(a,b,c, reversed=true))
 @time solveNaive(a,b,c)
 @time solveCPU(a,b,c)
 @time solveGPU(a,b,c)
 
-a,b,c = 21^7, 7^21, 12^7
+a,b,c = 21^7, 7^20, 12^7
 @time solveNaive(a,b,c)
 @time solveCPU(a,b,c)
 @time solveGPU(a,b,c)
